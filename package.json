@@ -1,0 +1,56 @@
+{
+  "name": "@tangent.to/lina",
+  "version": "0.1.0",
+  "description": "Linear algebra for JavaScript (ESM): LU, QR, Cholesky, SVD, symmetric eigen, least squares. scipy.linalg-validated.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "browser": "./dist/index.js",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "src",
+    "dist",
+    "README.md",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "prepare": "npm run build:browser",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:scipy": "uv run --with scipy python3 tests_compare-to-scipy/compare_with_scipy.py",
+    "build:browser": "esbuild src/index.js --bundle --platform=browser --format=esm --target=es2020 --outfile=dist/index.js --sourcemap --minify --keep-names",
+    "jsr:publish": "deno publish --allow-dirty",
+    "jsr:publish:dry-run": "deno publish --dry-run --allow-dirty",
+    "deno:check": "deno check src/index.js"
+  },
+  "keywords": [
+    "linability",
+    "matrix",
+    "svd",
+    "qr",
+    "cholesky",
+    "eigenvalues",
+    "esm",
+    "browser"
+  ],
+  "author": "Essi Parent",
+  "license": "MIT",
+  "homepage": "https://github.com/tangent-to/lina",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tangent-to/lina"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.11",
+    "vitest": "^1.6.0"
+  }
+}

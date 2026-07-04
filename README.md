@@ -1,0 +1,67 @@
+# tangent/lina
+
+Linear algebra for JavaScript (ESM). Browser-first, zero dependencies,
+runs in Node.js and Deno. The **lin**ear **a**lgebra leaf of the
+[tangent suite](https://github.com/tangent-to) — MIT-licensed
+infrastructure consumed by tangent/ds and tangent/sem.
+
+Matrices are plain nested row-major arrays (`number[][]`) at the API
+boundary; computation runs on flat `Float64Array` storage internally.
+
+## What's in it
+
+- **Factorizations**: `lu` (partial pivoting), `qr` (Householder,
+  reduced/full), `cholesky`, `svd` (one-sided Jacobi — high relative
+  accuracy), `eigSym` (cyclic Jacobi, symmetric matrices)
+- **Solvers**: `solve` (vector or multi-RHS), `choleskySolve`, `lstsq`
+  (QR-based), `pinvSolve` (minimum-norm, any rank)
+- **SVD-derived**: `pinv`, `rank`, `cond`
+- **Utilities**: `matmul`, `transpose`, `identity`, `diag`, `norm`
+  (fro/1/inf), `trace`, `det`, `inv`, `isPositiveDefinite`
+
+## Install
+
+```bash
+npm install @tangent.to/lina     # npm
+deno add jsr:@tangent/lina       # Deno / JSR
+```
+
+## Usage
+
+```javascript
+import { cholesky, eigSym, lstsq, solve, svd } from '@tangent.to/lina';
+
+solve([[2, 1], [1, 3]], [3, 5]);            // [0.8, 1.4]
+
+const { values, vectors } = eigSym(covarianceMatrix);  // PCA in two lines
+const { U, s, V } = svd(dataMatrix);
+
+const { x } = lstsq(designMatrix, y);        // OLS coefficients
+const L = cholesky(spdMatrix);               // throws if not positive definite
+```
+
+## Validation against numpy/scipy
+
+`tests_compare-to-scipy/` checks every operation against
+`numpy.linalg`/`scipy.linalg` on seeded random matrices — solve/det/inv,
+Cholesky (entrywise vs numpy), QR and SVD invariants, singular values and
+symmetric eigenvalues vs numpy, lstsq, pinv (including rank-deficient),
+rank and cond. Agreement is at machine precision (~1e-15). Requires
+[uv](https://docs.astral.sh/uv/) and Node:
+
+```bash
+npm run test:scipy
+```
+
+## Scope
+
+Dense, double-precision, textbook-modern algorithms sized for the suite's
+workloads (covariance algebra, regression, ordination — n up to a few
+hundred). Deliberately out of scope: sparse matrices, complex numbers,
+general nonsymmetric eigenproblems (until a consumer needs them), and
+BLAS-style micro-optimization — wasm kernels belong in tangent/nd when it
+lands.
+
+## License
+
+MIT.
