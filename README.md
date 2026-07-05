@@ -62,6 +62,22 @@ general nonsymmetric eigenproblems (until a consumer needs them), and
 BLAS-style micro-optimization — wasm kernels belong in tangent/nd when it
 lands.
 
+## Performance
+
+lina favors simple, unconditionally-stable algorithms (one-sided Jacobi
+SVD, cyclic Jacobi eigensolver) that hit machine precision on the suite's
+target sizes. On `solve`/`inv` it is competitive with the mature
+`ml-matrix`; on `matmul` and `svd` it is roughly 1.5–2× slower, and on
+symmetric eigendecomposition about 5× slower, because those Jacobi methods
+trade speed for simplicity. If a consumer ever profiles past this, the fix
+is targeted, not a rewrite: swap the symmetric eigensolver for tridiagonal
+QL and the SVD for Golub–Reinsch (the JAMA algorithms), and improve
+`matmul` cache locality. Until then, correctness and a zero-dependency
+footprint win. lina is not a general-purpose matrix library — for the rich
+`Matrix` API (elementwise arithmetic, broadcasting, views, nonsymmetric
+eigen), use `ml-matrix`; lina is the focused linear-algebra leaf the
+tangent suite's own packages build on.
+
 ## License
 
 MIT.
