@@ -16,7 +16,6 @@
     "src",
     "dist",
     "README.md",
-    "README.md",
     "LICENSE"
   ],
   "scripts": {
@@ -30,7 +29,7 @@
     "deno:check": "deno check src/index.js"
   },
   "keywords": [
-    "linability",
+    "linalg",
     "matrix",
     "svd",
     "qr",

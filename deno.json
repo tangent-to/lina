@@ -6,7 +6,6 @@
     "include": [
       "src/**/*.js",
       "README.md",
-      "README.md",
       "LICENSE"
     ],
     "exclude": [
