@@ -1,6 +1,6 @@
 {
   "name": "@tangent.to/lina",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Linear algebra for JavaScript (ESM): LU, QR, Cholesky, SVD, symmetric eigen, least squares. scipy.linalg-validated.",
   "type": "module",
   "main": "./dist/index.js",
