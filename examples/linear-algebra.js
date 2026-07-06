@@ -17,7 +17,14 @@ The heatmap below shows a `matmul` product as a labelled grid of cells.
 
 // %% [javascript]
 
-import { solve, svd, eigSym, lstsq, matmul, rank, cond } from 'https://esm.sh/@tangent.to/lina';
+import * as __lib from 'https://esm.sh/@tangent.to/lina';
+const solve = __lib.solve;
+const svd = __lib.svd;
+const eigSym = __lib.eigSym;
+const lstsq = __lib.lstsq;
+const matmul = __lib.matmul;
+const rank = __lib.rank;
+const cond = __lib.cond;
 
 // A matrix is a nested array of rows; a vector is a flat array. matmul is the
 // standard row-by-column product, useful for checking any result by hand.
