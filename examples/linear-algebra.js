@@ -13,16 +13,11 @@ over ordinary JavaScript arrays. A matrix is a `number[][]` in row-major order
 and a vector is a `number[]`; there is no custom matrix class to learn and no
 build step to wire up. Every routine is validated against numpy and
 scipy.linalg.
-
-This notebook imports the local build. Once the package is published you would
-import it from a CDN instead:
-
-    import { solve, svd, eigSym, lstsq } from 'https://esm.sh/@tangent.to/lina';
 */
 
 // %% [javascript]
 
-import { solve, svd, eigSym, lstsq, matmul, rank, cond } from '../dist/index.js';
+import { solve, svd, eigSym, lstsq, matmul, rank, cond } from 'https://esm.sh/@tangent.to/lina';
 
 // A matrix is a nested array of rows; a vector is a flat array. matmul is the
 // standard row-by-column product, useful for checking any result by hand.
