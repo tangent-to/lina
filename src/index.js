@@ -1,4 +1,3 @@
-// @ts-self-types="./index.d.ts"
 /**
  * @tangent.to/lina - Linear algebra for JavaScript (ESM)
  *
