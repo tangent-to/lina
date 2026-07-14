@@ -7,14 +7,14 @@
  * tangent suite.
  */
 
-export { det, inv, lu, solve } from './lu.js';
+export { det, inv, lu, luFactor, luFactorSolve, solve } from './lu.js';
 export { cholesky, choleskySolve, isPositiveDefinite } from './cholesky.js';
 export { lstsq, qr } from './qr.js';
 export { cond, pinv, pinvSolve, rank, svd } from './svd.js';
 export { eigSym } from './eigsym.js';
 export { diag, identity, matmul, norm, trace, transpose } from './ops.js';
 
-import { det, inv, lu, solve } from './lu.js';
+import { det, inv, lu, luFactor, luFactorSolve, solve } from './lu.js';
 import { cholesky, choleskySolve, isPositiveDefinite } from './cholesky.js';
 import { lstsq, qr } from './qr.js';
 import { cond, pinv, pinvSolve, rank, svd } from './svd.js';
@@ -23,6 +23,8 @@ import { diag, identity, matmul, norm, trace, transpose } from './ops.js';
 
 export default {
   lu,
+  luFactor,
+  luFactorSolve,
   solve,
   det,
   inv,

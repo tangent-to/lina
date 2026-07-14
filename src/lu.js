@@ -19,7 +19,7 @@ import { fromNested, toNested, vecFrom } from './_mat.js';
  * @param {number} n - Dimension
  * @returns {{a: Float64Array, perm: Int32Array, sign: number, singular: boolean}}
  */
-function luFactor(src, n) {
+function luDecompose(src, n) {
   const a = Float64Array.from(src);
   const perm = new Int32Array(n);
   const scale = new Float64Array(n);
@@ -102,7 +102,7 @@ function squareFromNested(A, caller) {
  */
 export function lu(A) {
   const { data, n } = squareFromNested(A, 'lu');
-  const { a, perm } = luFactor(data, n);
+  const { a, perm } = luDecompose(data, n);
   const L = new Float64Array(n * n);
   const U = new Float64Array(n * n);
   const P = new Float64Array(n * n);
@@ -113,6 +113,43 @@ export function lu(A) {
     for (let j = i; j < n; j++) U[i * n + j] = a[i * n + j];
   }
   return { L: toNested(L, n, n), U: toNested(U, n, n), P: toNested(P, n, n) };
+}
+
+/**
+ * LU factorization in packed flat storage, for callers that back-substitute
+ * many right-hand sides against one factorization on a hot path.
+ *
+ * Unlike lu(), this skips building the nested L, U and dense permutation
+ * matrix P: it returns the combined LU array directly (unit-diagonal L
+ * strictly below the diagonal, U on and above, in row-major n*n storage)
+ * together with the permutation vector, so no nested round-trip or
+ * permutation-matrix scan is needed. Pair it with luFactorSolve().
+ *
+ * @param {Array<Array<number>>} A - Square nested matrix
+ * @returns {{lu: Float64Array, perm: Int32Array, n: number, sign: number, singular: boolean}}
+ *   `lu` is the combined LU storage (row-major n*n); `perm` maps factored row k
+ *   to input row perm[k]; `sign` is the permutation sign; `singular` flags a
+ *   pivot at or below 1e-13 * maxAbs(A).
+ */
+export function luFactor(A) {
+  const { data, n } = squareFromNested(A, 'luFactor');
+  const { a, perm, sign, singular } = luDecompose(data, n);
+  return { lu: a, perm, n, sign, singular };
+}
+
+/**
+ * Solve A x = b from a packed factorization returned by luFactor().
+ *
+ * @param {{lu: Float64Array, perm: Int32Array, n: number}} fac - luFactor() result
+ * @param {Array<number>|Float64Array} b - Right-hand side (length n, not modified)
+ * @returns {Float64Array} Solution vector x
+ */
+export function luFactorSolve(fac, b) {
+  const { lu, perm, n } = fac;
+  const x = new Float64Array(n);
+  for (let i = 0; i < n; i++) x[i] = b[perm[i]];
+  luSolveInPlace(lu, perm, n, x);
+  return x;
 }
 
 /**
@@ -148,7 +185,7 @@ function luSolveInPlace(a, perm, n, x) {
  */
 export function solve(A, b) {
   const { data, n } = squareFromNested(A, 'solve');
-  const { a, perm, singular } = luFactor(data, n);
+  const { a, perm, singular } = luDecompose(data, n);
   if (singular) {
     throw new Error('solve: matrix is singular (pivot below tolerance)');
   }
@@ -186,7 +223,7 @@ export function solve(A, b) {
  */
 export function det(A) {
   const { data, n } = squareFromNested(A, 'det');
-  const { a, sign, singular } = luFactor(data, n);
+  const { a, sign, singular } = luDecompose(data, n);
   if (singular) return 0;
   let d = sign;
   for (let i = 0; i < n; i++) d *= a[i * n + i];

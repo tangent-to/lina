@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { det, inv, lu, solve } from '../src/lu.js';
+import { det, inv, lu, luFactor, luFactorSolve, solve } from '../src/lu.js';
 import { cholesky, choleskySolve, isPositiveDefinite } from '../src/cholesky.js';
 import { diag, identity, matmul, norm, trace, transpose } from '../src/ops.js';
 
@@ -57,6 +57,45 @@ describe('lu', () => {
       expect(rowSum).toBe(1);
       expect(colSum).toBe(1);
     }
+  });
+});
+
+describe('luFactor', () => {
+  const A5 = [
+    [0, 2, 1, 4, 1],
+    [3, 1, 2, 0, 5],
+    [1, 4, 0, 2, 2],
+    [2, 0, 3, 1, 1],
+    [4, 1, 1, 3, 0],
+  ];
+
+  it('packs the same L/U values as lu() into flat combined storage', () => {
+    const { L, U } = lu(A5);
+    const { lu: a, perm, n, singular } = luFactor(A5);
+    expect(n).toBe(5);
+    expect(singular).toBe(false);
+    expect(perm.length).toBe(5);
+    for (let i = 0; i < n; i++) {
+      for (let j = 0; j < n; j++) {
+        const expected = j < i ? L[i][j] : U[i][j];
+        expect(a[i * n + j]).toBe(expected);
+      }
+    }
+  });
+
+  it('luFactorSolve matches solve() for a factorization', () => {
+    const b = [1, 2, 3, 4, 5];
+    const fac = luFactor(A5);
+    const x = luFactorSolve(fac, b);
+    expect(maxVecDiff(Array.from(x), solve(A5, b))).toBeLessThan(1e-12);
+  });
+
+  it('flags a singular matrix', () => {
+    const { singular } = luFactor([
+      [1, 2],
+      [2, 4],
+    ]);
+    expect(singular).toBe(true);
   });
 });
 
