@@ -18,13 +18,26 @@ import { assertSymmetric, fromNested, toNested, vecFrom } from './_mat.js';
 export function cholesky(A) {
   const M = fromNested(A, 'A');
   assertSymmetric(M, 'cholesky');
+  return toNested(choleskyFlat(M, 'cholesky'), M.n, M.n);
+}
+
+/**
+ * Cholesky factorization on flat storage, for callers that already hold a
+ * validated square matrix and want to avoid the nested round trip.
+ *
+ * @param {{data: Float64Array, n: number}} M - Square matrix from fromNested()
+ * @param {string} caller - Function name for error messages
+ * @returns {Float64Array} Row-major n*n lower triangular L with A = L L^T
+ * @throws {Error} When a diagonal pivot is <= 0 (not positive definite)
+ */
+export function choleskyFlat(M, caller = 'cholesky') {
   const { data, n } = M;
   const L = new Float64Array(n * n);
   for (let j = 0; j < n; j++) {
     let d = data[j * n + j];
     for (let k = 0; k < j; k++) d -= L[j * n + k] * L[j * n + k];
     if (d <= 0) {
-      throw new Error(`cholesky: matrix is not positive definite (pivot ${j} is ${d})`);
+      throw new Error(`${caller}: matrix is not positive definite (pivot ${j} is ${d})`);
     }
     const ljj = Math.sqrt(d);
     L[j * n + j] = ljj;
@@ -34,7 +47,51 @@ export function cholesky(A) {
       L[i * n + j] = s / ljj;
     }
   }
-  return toNested(L, n, n);
+  return L;
+}
+
+/**
+ * Forward substitution L X = B for lower triangular L, on flat storage.
+ *
+ * @param {Float64Array} L - Row-major n*n lower triangular factor
+ * @param {number} n - Dimension of L
+ * @param {Float64Array} B - Row-major n*k right-hand side (not modified)
+ * @param {number} k - Number of right-hand side columns
+ * @returns {Float64Array} Row-major n*k solution X
+ */
+export function solveLowerFlat(L, n, B, k) {
+  const X = new Float64Array(n * k);
+  for (let i = 0; i < n; i++) {
+    const lii = L[i * n + i];
+    for (let c = 0; c < k; c++) {
+      let s = B[i * k + c];
+      for (let j = 0; j < i; j++) s -= L[i * n + j] * X[j * k + c];
+      X[i * k + c] = s / lii;
+    }
+  }
+  return X;
+}
+
+/**
+ * Back substitution L^T X = B for lower triangular L, on flat storage.
+ *
+ * @param {Float64Array} L - Row-major n*n lower triangular factor
+ * @param {number} n - Dimension of L
+ * @param {Float64Array} B - Row-major n*k right-hand side (not modified)
+ * @param {number} k - Number of right-hand side columns
+ * @returns {Float64Array} Row-major n*k solution X
+ */
+export function solveLowerTransposeFlat(L, n, B, k) {
+  const X = new Float64Array(n * k);
+  for (let i = n - 1; i >= 0; i--) {
+    const lii = L[i * n + i];
+    for (let c = 0; c < k; c++) {
+      let s = B[i * k + c];
+      for (let j = i + 1; j < n; j++) s -= L[j * n + i] * X[j * k + c];
+      X[i * k + c] = s / lii;
+    }
+  }
+  return X;
 }
 
 /**

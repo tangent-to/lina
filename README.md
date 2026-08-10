@@ -13,6 +13,9 @@ boundary; computation runs on flat `Float64Array` storage internally.
 - **Factorizations**: `lu` (partial pivoting), `qr` (Householder,
   reduced/full), `cholesky`, `svd` (one-sided Jacobi — high relative
   accuracy), `eigSym` (cyclic Jacobi, symmetric matrices)
+- **Generalized eigenproblem**: `eigSymGeneralized` (`A x = λ B x` by
+  Cholesky reduction, with a truncated fallback when `B` is singular),
+  `invSqrtSym` (truncated inverse square root)
 - **Solvers**: `solve` (vector or multi-RHS), `choleskySolve`, `lstsq`
   (QR-based), `pinvSolve` (minimum-norm, any rank)
 - **SVD-derived**: `pinv`, `rank`, `cond`
@@ -29,7 +32,7 @@ deno add jsr:@tangent/lina       # Deno / JSR
 ## Usage
 
 ```javascript
-import { cholesky, eigSym, lstsq, solve, svd } from '@tangent.to/lina';
+import { cholesky, eigSym, eigSymGeneralized, lstsq, solve, svd } from '@tangent.to/lina';
 
 solve([[2, 1], [1, 3]], [3, 5]);            // [0.8, 1.4]
 
@@ -38,6 +41,10 @@ const { U, s, V } = svd(dataMatrix);
 
 const { x } = lstsq(designMatrix, y);        // OLS coefficients
 const L = cholesky(spdMatrix);               // throws if not positive definite
+
+// Discriminant axes: Sb x = λ Sw x, scipy's eigh(Sb, Sw) without the
+// hard failure when Sw is rank-deficient
+const { values: ratios, vectors: axes, definite } = eigSymGeneralized(Sb, Sw);
 ```
 
 ## Validation against numpy/scipy
@@ -45,8 +52,11 @@ const L = cholesky(spdMatrix);               // throws if not positive definite
 `tests_compare-to-scipy/` checks every operation against
 `numpy.linalg`/`scipy.linalg` on seeded random matrices — solve/det/inv,
 Cholesky (entrywise vs numpy), QR and SVD invariants, singular values and
-symmetric eigenvalues vs numpy, lstsq, pinv (including rank-deficient),
-rank and cond. Agreement is at machine precision (~1e-15). Requires
+symmetric eigenvalues vs numpy, the generalized symmetric eigenproblem vs
+`scipy.linalg.eigh(A, B)` (eigenvalues, residual and B-orthonormality),
+`invSqrtSym` vs `fractional_matrix_power(A, -1/2)`, lstsq, pinv (including
+rank-deficient), rank and cond. Agreement is at machine precision (~1e-15).
+Requires
 [uv](https://docs.astral.sh/uv/) and Node:
 
 ```bash

@@ -18,6 +18,8 @@ import tempfile
 from pathlib import Path
 
 import numpy as np
+from scipy.linalg import eigh as scipy_eigh
+from scipy.linalg import fractional_matrix_power as scipy_fractional_matrix_power
 
 ROOT = Path(__file__).resolve().parents[1]
 NODE_SCRIPT = ROOT / "tests_compare-to-scipy" / "compare_lina.mjs"
@@ -92,6 +94,62 @@ def main():
         Vv = np.asarray(js["vectors"])
         D = np.diag(js["values"])
         check(f"eigSym n={n} reconstruction", float(np.max(np.abs(Vv @ D @ Vv.T - A))), 1e-9)
+
+    # --- eigSymGeneralized vs scipy.linalg.eigh(A, B) ---
+    for n in (4, 10, 25):
+        M = rng.standard_normal((n, n))
+        A = (M + M.T) / 2
+        C = rng.standard_normal((n, n))
+        B = C @ C.T + n * np.eye(n)  # symmetric positive definite
+        js = run_node({"op": "eigSymGeneralized", "A": A.tolist(), "B": B.tolist()})
+        assert js["definite"] is True, "expected the Cholesky route on a definite B"
+        w_sp = scipy_eigh(A, B)[0][::-1]  # scipy ascending -> lina descending
+        check(f"eigSymGeneralized n={n} eigenvalues",
+              float(np.max(np.abs(np.asarray(js["values"]) - w_sp))), 1e-9)
+        X = np.asarray(js["vectors"])
+        w = np.asarray(js["values"])
+        # A x = lambda B x, and B-orthonormality (scipy's normalization)
+        check(f"eigSymGeneralized n={n} residual",
+              float(np.max(np.abs(A @ X - B @ X @ np.diag(w)))), 1e-8)
+        check(f"eigSymGeneralized n={n} B-orthonormal",
+              float(np.max(np.abs(X.T @ B @ X - np.eye(n)))), 1e-9)
+
+    # --- eigSymGeneralized on a singular B, where scipy refuses ---
+    # lina solves the problem projected onto range(B): P A x = lambda B x.
+    n, r = 6, 4
+    M = rng.standard_normal((n, n))
+    A = (M + M.T) / 2
+    F = rng.standard_normal((n, r))
+    B = F @ F.T  # rank r < n
+    try:
+        scipy_eigh(A, B)
+        raise AssertionError("expected scipy.linalg.eigh to reject a singular B")
+    except np.linalg.LinAlgError:
+        pass
+    except Exception as exc:  # scipy raises its own LinAlgError subclass
+        if "positive definite" not in str(exc):
+            raise
+    js = run_node({"op": "eigSymGeneralized", "A": A.tolist(), "B": B.tolist()})
+    assert js["definite"] is False, "expected the semidefinite fallback"
+    X = np.asarray(js["vectors"])
+    w = np.asarray(js["values"])
+    U_b, s_b, _ = np.linalg.svd(B)
+    P = U_b[:, :r] @ U_b[:, :r].T  # orthogonal projector onto range(B)
+    live = np.abs(w) > 1e-8
+    check("eigSymGeneralized singular B projected residual",
+          float(np.max(np.abs(P @ A @ X[:, live] - B @ X[:, live] @ np.diag(w[live])))), 1e-8)
+    check("eigSymGeneralized singular B rank of solution",
+          abs(int(live.sum()) - r), 0.5)
+
+    # --- invSqrtSym vs scipy.linalg.fractional_matrix_power(A, -1/2) ---
+    for n in (3, 9):
+        C = rng.standard_normal((n, n))
+        A = C @ C.T + n * np.eye(n)
+        js = run_node({"op": "invSqrtSym", "A": A.tolist()})
+        W = np.asarray(js["W"])
+        check(f"invSqrtSym n={n} vs scipy",
+              float(np.max(np.abs(W - scipy_fractional_matrix_power(A, -0.5).real))), 1e-9)
+        check(f"invSqrtSym n={n} W A W = I", float(np.max(np.abs(W @ A @ W - np.eye(n)))), 1e-9)
 
     # --- lstsq vs numpy ---
     A = rng.standard_normal((30, 4))

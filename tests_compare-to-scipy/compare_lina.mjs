@@ -22,6 +22,14 @@ switch (op) {
     out = lina.eigSym(A);
     break;
   }
+  case 'eigSymGeneralized': {
+    const { values, vectors, definite } = lina.eigSymGeneralized(A, spec.B, spec.options || {});
+    out = { values, vectors, definite };
+    break;
+  }
+  case 'invSqrtSym':
+    out = { W: lina.invSqrtSym(A) };
+    break;
   case 'solve':
     out = { x: lina.solve(A, b) };
     break;
