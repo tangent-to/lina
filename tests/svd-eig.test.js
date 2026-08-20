@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { eigSym } from '../src/eigsym.js';
+import { eigSym, eigSymGeneralized, invSqrtSym } from '../src/eigsym.js';
 import { cond, pinv, pinvSolve, rank, svd } from '../src/svd.js';
 
 /** Multiply nested matrices (test helper). */
@@ -144,5 +144,146 @@ describe('eigSym', () => {
     expect(values[0]).toBeCloseTo(5, 14);
     expect(values[1]).toBeCloseTo(3, 14);
     expect(values[2]).toBeCloseTo(-2, 14);
+  });
+});
+
+/** Symmetric positive definite matrix of size n (diagonally dominant). */
+function spd(n, seed) {
+  const R = randMat(n, n, seed);
+  const A = mm(T(R), R);
+  for (let i = 0; i < n; i++) A[i][i] += n;
+  return A;
+}
+
+/** Worst relative residual ||A x - lambda B x|| / ||A x|| over the given columns. */
+function genResidual(A, B, values, vectors, columns) {
+  const n = A.length;
+  let worst = 0;
+  for (const c of columns) {
+    const x = vectors.map((row) => row[c]);
+    let num = 0;
+    let den = 0;
+    for (let i = 0; i < n; i++) {
+      let ax = 0;
+      let bx = 0;
+      for (let j = 0; j < n; j++) {
+        ax += A[i][j] * x[j];
+        bx += B[i][j] * x[j];
+      }
+      const d = ax - values[c] * bx;
+      num += d * d;
+      den += ax * ax;
+    }
+    worst = Math.max(worst, Math.sqrt(num) / Math.max(Math.sqrt(den), 1e-300));
+  }
+  return worst;
+}
+
+describe('eigSymGeneralized', () => {
+  it('reduces to eigSym when B is the identity', () => {
+    const A = spd(5, 3);
+    const gen = eigSymGeneralized(A, identity(5));
+    const plain = eigSym(A);
+    expect(gen.definite).toBe(true);
+    for (let i = 0; i < 5; i++) {
+      expect(gen.values[i]).toBeCloseTo(plain.values[i], 10);
+    }
+    expect(maxAbsDiff(gen.vectors, plain.vectors)).toBeLessThan(1e-10);
+  });
+
+  it('solves a known 2x2 problem', () => {
+    // A x = lambda B x with A = [[2,1],[1,3]], B = diag(2,1):
+    // det(A - lambda B) = 2 lambda^2 - 8 lambda + 5, roots (4 +/- sqrt(6)) / 2
+    const { values } = eigSymGeneralized([[2, 1], [1, 3]], [[2, 0], [0, 1]]);
+    expect(values[0]).toBeCloseTo((4 + Math.sqrt(6)) / 2, 12);
+    expect(values[1]).toBeCloseTo((4 - Math.sqrt(6)) / 2, 12);
+  });
+
+  it('satisfies A x = lambda B x with B-orthonormal vectors', () => {
+    for (const [n, seed] of [[4, 5], [9, 13], [15, 21]]) {
+      const A = mm(T(randMat(n, n, seed)), randMat(n, n, seed)); // symmetric
+      const B = spd(n, seed + 1);
+      const { values, vectors, definite } = eigSymGeneralized(A, B);
+      expect(definite).toBe(true);
+      const all = Array.from({ length: n }, (_, i) => i);
+      expect(genResidual(A, B, values, vectors, all)).toBeLessThan(1e-9);
+      // x^T B x = I
+      expect(maxAbsDiff(mm(mm(T(vectors), B), vectors), identity(n))).toBeLessThan(1e-9);
+      // descending
+      for (let i = 1; i < n; i++) {
+        expect(values[i]).toBeLessThanOrEqual(values[i - 1] + 1e-12);
+      }
+    }
+  });
+
+  it('falls back to the problem projected onto range(B) when B is singular', () => {
+    // B has rank 2 of 3; the third direction carries no information
+    const R = randMat(3, 2, 31);
+    const B = mm(R, T(R));
+    const A = spd(3, 33);
+    const { values, vectors, definite } = eigSymGeneralized(A, B);
+    expect(definite).toBe(false);
+
+    // Orthogonal projector onto range(B), from B's own eigenbasis
+    const { values: bv, vectors: bvec } = eigSym(B);
+    const cutoff = bv[0] * 1e-10;
+    const P = Array.from({ length: 3 }, () => new Array(3).fill(0));
+    for (let k = 0; k < 3; k++) {
+      if (bv[k] <= cutoff) continue;
+      for (let i = 0; i < 3; i++) {
+        for (let j = 0; j < 3; j++) P[i][j] += bvec[i][k] * bvec[j][k];
+      }
+    }
+
+    // On range(B) the solution is exact: P A x = lambda B x. Off it, the
+    // equation has no solution and the null direction is returned as zero.
+    const live = values.map((v, i) => (Math.abs(v) > 1e-8 ? i : -1)).filter((i) => i >= 0);
+    expect(live.length).toBe(2);
+    expect(genResidual(mm(P, A), B, values, vectors, live)).toBeLessThan(1e-8);
+    const nullCol = values.findIndex((v) => Math.abs(v) <= 1e-8);
+    expect(Math.max(...vectors.map((row) => Math.abs(row[nullCol])))).toBeLessThan(1e-12);
+  });
+
+  it('throws on a singular B when strict is set', () => {
+    const B = [[1, 0], [0, 0]];
+    expect(() => eigSymGeneralized([[2, 1], [1, 3]], B, { strict: true }))
+      .toThrow(/not positive definite/);
+    expect(eigSymGeneralized([[2, 1], [1, 3]], B).definite).toBe(false);
+  });
+
+  it('rejects non-symmetric or mismatched input', () => {
+    const I2 = identity(2);
+    expect(() => eigSymGeneralized([[1, 2], [3, 4]], I2)).toThrow(/not symmetric/);
+    expect(() => eigSymGeneralized(I2, [[1, 2], [3, 4]])).toThrow(/not symmetric/);
+    expect(() => eigSymGeneralized(identity(3), I2)).toThrow(/same size/);
+  });
+});
+
+describe('invSqrtSym', () => {
+  it('inverts the square root of a positive definite matrix', () => {
+    const A = spd(6, 41);
+    const W = invSqrtSym(A);
+    // W A W = I, and W is symmetric
+    expect(maxAbsDiff(mm(mm(W, A), W), identity(6))).toBeLessThan(1e-10);
+    expect(maxAbsDiff(W, T(W))).toBeLessThan(1e-12);
+    // W W = inv(A)
+    expect(maxAbsDiff(mm(mm(W, W), A), identity(6))).toBeLessThan(1e-10);
+  });
+
+  it('is exact on diagonal matrices', () => {
+    expect(invSqrtSym([[4, 0], [0, 9]])).toEqual([[0.5, 0], [0, 1 / 3]]);
+  });
+
+  it('drops null directions instead of amplifying them', () => {
+    const W = invSqrtSym([[4, 0], [0, 0]]);
+    expect(W).toEqual([[0.5, 0], [0, 0]]);
+    // Roundoff-level negatives are treated as zero, not as an error
+    expect(invSqrtSym([[4, 0], [0, -1e-18]])).toEqual([[0.5, 0], [0, 0]]);
+    expect(invSqrtSym([[0, 0], [0, 0]])).toEqual([[0, 0], [0, 0]]);
+  });
+
+  it('rejects indefinite and non-symmetric input', () => {
+    expect(() => invSqrtSym([[1, 0], [0, -5]])).toThrow(/not positive semidefinite/);
+    expect(() => invSqrtSym([[1, 2], [3, 4]])).toThrow(/not symmetric/);
   });
 });

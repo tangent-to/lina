@@ -11,14 +11,14 @@ export { det, inv, lu, luFactor, luFactorSolve, solve } from './lu.js';
 export { cholesky, choleskySolve, isPositiveDefinite } from './cholesky.js';
 export { lstsq, qr } from './qr.js';
 export { cond, pinv, pinvSolve, rank, svd } from './svd.js';
-export { eigSym } from './eigsym.js';
+export { eigSym, eigSymGeneralized, invSqrtSym } from './eigsym.js';
 export { diag, identity, matmul, norm, trace, transpose } from './ops.js';
 
 import { det, inv, lu, luFactor, luFactorSolve, solve } from './lu.js';
 import { cholesky, choleskySolve, isPositiveDefinite } from './cholesky.js';
 import { lstsq, qr } from './qr.js';
 import { cond, pinv, pinvSolve, rank, svd } from './svd.js';
-import { eigSym } from './eigsym.js';
+import { eigSym, eigSymGeneralized, invSqrtSym } from './eigsym.js';
 import { diag, identity, matmul, norm, trace, transpose } from './ops.js';
 
 export default {
@@ -39,6 +39,8 @@ export default {
   rank,
   cond,
   eigSym,
+  eigSymGeneralized,
+  invSqrtSym,
   matmul,
   transpose,
   identity,
