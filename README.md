@@ -16,8 +16,8 @@ boundary; computation runs on flat `Float64Array` storage internally.
 - **Generalized eigenproblem**: `eigSymGeneralized` (`A x = λ B x` by
   Cholesky reduction, with a truncated fallback when `B` is singular),
   `invSqrtSym` (truncated inverse square root)
-- **Solvers**: `solve` (vector or multi-RHS), `choleskySolve`, `lstsq`
-  (QR-based), `pinvSolve` (minimum-norm, any rank)
+- **Solvers**: `solve` (vector or multi-RHS), `choleskySolve` (vector or
+  multi-RHS), `lstsq` (QR-based), `pinvSolve` (minimum-norm, any rank)
 - **SVD-derived**: `pinv`, `rank`, `cond`
 - **Utilities**: `matmul`, `transpose`, `identity`, `diag`, `norm`
   (fro/1/inf), `trace`, `det`, `inv`, `isPositiveDefinite`

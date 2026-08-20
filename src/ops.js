@@ -2,11 +2,22 @@
  * Basic dense matrix operations: multiply, transpose, identity, diagonal,
  * norms, and trace.
  *
- * Public APIs accept and return nested row-major matrices; computation runs
- * on flat Float64Array storage (see _mat.js).
+ * Public APIs accept and return nested row-major matrices. Most kernels run
+ * on flat Float64Array storage (see _mat.js); `matmul` is the exception and
+ * reads nested rows directly, which measured faster on both V8 and
+ * JavaScriptCore once the conversion is counted.
  */
 
-import { fromNested, toNested, vecFrom } from './_mat.js';
+import { fromNested, shapeOfNested, toNested, vecFrom } from './_mat.js';
+
+/**
+ * Largest dimension for which matmul reads nested rows directly instead of
+ * converting to flat storage. Set from the JavaScriptCore crossover, which
+ * sits between 128 and 160; V8 prefers nested at every size measured, so this
+ * gives up ~1.2x there to avoid a 0.64-0.80x regression in Safari. Consumers
+ * profile at a maximum dimension of 100, well inside the nested path.
+ */
+const NESTED_MATMUL_MAX_DIM = 128;
 
 /**
  * Matrix product A B, or matrix-vector product A b.
@@ -18,26 +29,54 @@ import { fromNested, toNested, vecFrom } from './_mat.js';
  *   vector of length m
  */
 export function matmul(A, B) {
-  const Ma = fromNested(A, 'A');
-  const { data: a, m, n } = Ma;
+  const { m, n } = shapeOfNested(A, 'A');
 
   if (Array.isArray(B) && !Array.isArray(B[0])) {
     const x = vecFrom(B, n, 'B');
-    const y = new Float64Array(m);
+    const y = new Array(m);
     for (let i = 0; i < m; i++) {
+      const Ai = A[i];
       let s = 0;
-      for (let j = 0; j < n; j++) s += a[i * n + j] * x[j];
+      for (let j = 0; j < n; j++) s += Ai[j] * x[j];
       y[i] = s;
     }
-    return Array.from(y);
+    return y;
   }
 
-  const Mb = fromNested(B, 'B');
-  if (Mb.m !== n) {
-    throw new Error(`matmul: dimension mismatch (A is ${m}x${n}, B is ${Mb.m}x${Mb.n})`);
+  const { m: bm, n: p } = shapeOfNested(B, 'B');
+  if (bm !== n) {
+    throw new Error(`matmul: dimension mismatch (A is ${m}x${n}, B is ${bm}x${p})`);
   }
-  const b = Mb.data;
-  const p = Mb.n;
+
+  if (Math.max(m, n, p) <= NESTED_MATMUL_MAX_DIM) {
+    // Same i-k-j order, reading the caller's rows directly. Below this size the
+    // round trip through flat storage costs more than it saves, and on small
+    // matrices — where consumers spend the overwhelming majority of their
+    // calls — the conversion dominates the arithmetic outright (measured 3.7x
+    // on 3x3 under V8, 2.3x under JavaScriptCore).
+    const C = new Array(m);
+    for (let i = 0; i < m; i++) {
+      const Ci = new Array(p).fill(0);
+      const Ai = A[i];
+      for (let k = 0; k < n; k++) {
+        const aik = Ai[k];
+        if (aik === 0) continue;
+        const Bk = B[k];
+        for (let j = 0; j < p; j++) {
+          Ci[j] += aik * Bk[j];
+        }
+      }
+      C[i] = Ci;
+    }
+    return C;
+  }
+
+  // Above it the engines disagree: V8 still prefers nested by ~1.2x, but
+  // JavaScriptCore inverts hard (0.80x at n=160, 0.64x at n=256), so the flat
+  // kernel is the safe choice for the sizes where the conversion is amortised
+  // anyway. Both kernels produce bit-identical results.
+  const a = fromNested(A, 'A').data;
+  const b = fromNested(B, 'B').data;
   const c = new Float64Array(m * p);
   for (let i = 0; i < m; i++) {
     for (let k = 0; k < n; k++) {

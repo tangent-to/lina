@@ -205,6 +205,43 @@ describe('cholesky', () => {
     const L = cholesky(SPD);
     expect(maxVecDiff(choleskySolve(L, b), solve(SPD, b))).toBeLessThan(1e-12);
   });
+
+  it('choleskySolve accepts a matrix of right-hand sides', () => {
+    const L = cholesky(SPD);
+    const B = [[1, 0], [-2, 1], [3, -1]];
+    const X = choleskySolve(L, B);
+    expect(X.length).toBe(3);
+    expect(X[0].length).toBe(2);
+    // Each column must agree with the single-vector solve of that column
+    for (let c = 0; c < 2; c++) {
+      const col = B.map((row) => row[c]);
+      const expected = choleskySolve(L, col);
+      for (let i = 0; i < 3; i++) {
+        expect(X[i][c]).toBeCloseTo(expected[i], 12);
+      }
+    }
+  });
+
+  it('choleskySolve against the identity gives the inverse', () => {
+    const L = cholesky(SPD);
+    const I = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+    const inverse = choleskySolve(L, I);
+    // SPD * inverse = I
+    for (let i = 0; i < 3; i++) {
+      for (let j = 0; j < 3; j++) {
+        let s = 0;
+        for (let k = 0; k < 3; k++) s += SPD[i][k] * inverse[k][j];
+        expect(s).toBeCloseTo(i === j ? 1 : 0, 12);
+      }
+    }
+  });
+
+  it('choleskySolve rejects a mismatched right-hand side', () => {
+    const L = cholesky(SPD);
+    expect(() => choleskySolve(L, [[1, 0], [0, 1]])).toThrow(/must have 3 rows/);
+    expect(() => choleskySolve(L, [1, 2])).toThrow(/length 3/);
+    expect(() => choleskySolve([[1, 2, 3], [4, 5, 6]], [1, 2])).toThrow(/square/);
+  });
 });
 
 describe('isPositiveDefinite', () => {

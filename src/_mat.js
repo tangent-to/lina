@@ -38,6 +38,32 @@ export function fromNested(A, name = 'A') {
 }
 
 /**
+ * Validate a nested matrix's shape without copying it, for kernels that read
+ * the caller's rows directly instead of converting to flat storage.
+ *
+ * @param {Array<Array<number>>} A - Nested matrix
+ * @param {string} [name='A'] - Argument name for error messages
+ * @returns {{m: number, n: number}}
+ */
+export function shapeOfNested(A, name = 'A') {
+  if (!Array.isArray(A) || A.length === 0 || !Array.isArray(A[0])) {
+    throw new Error(`${name} must be a non-empty array of rows`);
+  }
+  const m = A.length;
+  const n = A[0].length;
+  if (n === 0) {
+    throw new Error(`${name} must have at least one column`);
+  }
+  for (let i = 1; i < m; i++) {
+    const row = A[i];
+    if (!Array.isArray(row) || row.length !== n) {
+      throw new Error(`${name} is not rectangular (row ${i} has length ${row?.length}, expected ${n})`);
+    }
+  }
+  return { m, n };
+}
+
+/**
  * Convert flat storage back to a nested row-major matrix.
  *
  * @param {Float64Array|Array<number>} data - Flat row-major values
