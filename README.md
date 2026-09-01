@@ -3,7 +3,7 @@
 Linear algebra for JavaScript (ESM). Browser-first, zero dependencies,
 runs in Node.js and Deno. The **lin**ear **a**lgebra leaf of the
 [tangent suite](https://github.com/tangent-to) — MIT-licensed
-infrastructure consumed by tangent/ds and tangent/sem.
+infrastructure consumed by tangent/ds, tangent/grad and tangent/sem.
 
 Matrices are plain nested row-major arrays (`number[][]`) at the API
 boundary; computation runs on flat `Float64Array` storage internally.
